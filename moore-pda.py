@@ -144,11 +144,11 @@ class PDA():
         for transition in transitions:
             self.transitions.remove(transition)
 
-    def convert_to_MPDA(self):
+    def convert_to_MPDA(self) -> MPDA:
         """Convert PDA to MPDA."""
 
         new_states: Set[str]
-        new_input_symbols: Set[str]
+        new_input_symbols: Set[str] = self.input_symbols
         new_stack_symbols: Set[str]
         new_transitions: Set[MPDATransition] = set()
         new_output_function: Dict[str, str]
@@ -186,13 +186,36 @@ class PDA():
             # the case POP does not occur because that would mean that a word
             # of length 1 is accepted, which is not representable in the MPDA
 
-
         print(new_states)
         print(new_initial)
         print(new_final)
 
-        # TODO: implementation of transitions
+        # transitions: shift transition input symbol to target state
+        # input symbol and stack symbol stored in source state can by any symbol
+        # simulate stack symbol above stack bottom symbol in state
+        for (src, inp, op, stk, tar) in self.transitions:
+            for isym in self.input_symbols:
+                for ssym in stack_symbols_temp:
+                    if op == StackOp.IGNORE:
+                        # ignore: stack symbol in state unchanged
+                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.IGNORE, None, f"{tar}_{inp}_{ssym}_{0}"))
+                        new_transitions.add((f"{src}_{isym}_{ssym}_{1}", StackOp.IGNORE, None, f"{tar}_{inp}_{ssym}_{1}"))
+                    elif op == StackOp.PUSH:
+                        # push: stack symbol in state not at the top of the stack anymore (0 in target state)
+                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.PUSH, f"{stk}_0", f"{tar}_{inp}_{ssym}_{0}"))
+                        new_transitions.add((f"{src}_{isym}_{ssym}_{1}", StackOp.PUSH, f"{stk}_1", f"{tar}_{inp}_{ssym}_{0}"))
+                    elif op == StackOp.POP:
+                        # pop 1: pop symbol from real stack and retrieve top of stack bit
+                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.POP, f"{stk}_0", f"{tar}_{inp}_{ssym}_{0}"))
+                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.POP, f"{stk}_1", f"{tar}_{inp}_{ssym}_{1}"))
+                        # pop 2: stack symbol in state is at the top of the stack, so it is removed instead
+                        new_transitions.add((f"{src}_{isym}_{stk}_{1}", StackOp.IGNORE, None, f"{tar}_{inp}_{EPS}_{1}"))
+                        # pop 3: bottom of the stack is reached and no stack symbol stored in state
+                        new_transitions.add((f"{src}_{isym}_{EPS}_{1}", StackOp.POP, f"{stk}_1", f"{tar}_{inp}_{EPS}_{1}"))
         
+        print(new_transitions)
+
+        return(MPDA(new_states, new_input_symbols, new_stack_symbols, new_transitions, new_output_function, new_initial, new_final))
 
 
 @dataclass
