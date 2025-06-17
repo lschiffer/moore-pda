@@ -1,0 +1,238 @@
+from __future__ import annotations
+from dataclasses import dataclass, fields
+from typing import Set, Tuple, Optional, Dict
+from enum import Enum
+from typeguard import typechecked
+import json
+
+
+class StackOp(Enum):
+    PUSH = "__push__"
+    POP = "__pop__"
+    IGNORE = "__ignore__"
+
+BOTTOM = "__bottom_symbol__"
+EPS = "__epsilon__"
+
+PDATransition = Tuple[str, str, StackOp, Optional[str], str]
+MPDATransition = Tuple[str, StackOp, Optional[str], str]
+
+@dataclass
+@typechecked
+class PDA():
+    """Pushdown automaton.
+    In a single transition, only single stack symbols can be pushed or popped
+    (or the stack can be ignored).
+    No epsilon-transitions are allowed.
+    An accepting configuration is reached when a final state is reached while
+    emptying the stack. Note that the empty word can therefore not be accepted.
+    Transitions have the form (source state, input symbol, stack operation,
+    stack symbol, target state). If the stack operation is IGNORE, the stack
+    symbol should be None.
+    """
+    
+    states: Set[str]
+    input_symbols: Set[str]
+    stack_symbols: Set[str]
+    transitions: Set[PDATransition]
+    initial: Set[str]
+    final: Set[str]
+
+
+    def __post_init__(self):
+
+        self.check_basics()
+        self.check_initial_states_no_ingoing()
+        self.check_final_states_no_outgoing()
+        self.check_transitions_to_final()
+
+
+    def check_basics(self):
+        """Basic check that the PDA definition is not violated: transition,
+        initial, and final may only use valid states, input_symbols,
+        and stack_symbols, respectively.
+        """
+
+        if not self.initial <= self.states:
+            raise ValueError("Initial states must be contained in states");
+        if not self.final <= self.states:
+            raise ValueError("Final states must be contained in states");
+        if not BOTTOM in self.stack_symbols:
+            raise ValueError(f"{BOTTOM} must be in state set")
+        for (src, inp, op, stk, tar) in self.transitions:
+            if (not src in self.states) or (not tar in self.states):
+                raise ValueError(f"Invalid source or target state in ({src, inp, op, stk, tar})")
+            if not stk in self.stack_symbols and not stk is None:
+                raise ValueError(f"Invalid stack symbol in ({src, inp, op, stk, tar})")
+            if (not isinstance(op, StackOp)) or (op == StackOp.IGNORE and not (stk is None)):
+                raise ValueError(f"Invalid stack operation in ({src, inp, op, stk, tar})")
+        if not self.states or not self.initial or not self.final or not self.input_symbols:
+                raise ValueError(f"Sets of states, initial states, final states, input symbols must not be empty")
+
+
+    @classmethod
+    def from_dict(cls, input_dict) -> PDA:
+        """Takes a JSON dict and returns a PDA instance based on it."""
+
+        if input_dict["type"] != "PDA":
+                raise ValueError(f"Input automaton type not matching PDA")
+
+        prepared_dict = {}
+
+        for field in fields(PDA):
+            if field.name == "transitions":
+                prepared_transitions = []
+                for trans in input_dict["transitions"]:
+                    if len(trans) != 5:
+                        raise ValueError(f"PDATransition {trans} needs to have 5 elements")
+                    prepared_transitions.append((trans[0], trans[1], StackOp(trans[2]), trans[3], trans[4]))
+
+                prepared_dict["transitions"] = prepared_transitions
+                
+            else:
+                if field.name in input_dict:
+                    prepared_dict[field.name] = set(input_dict[field.name])
+
+        return PDA(**prepared_dict)
+
+
+    def check_initial_states_no_ingoing(self):
+        """Check that initial states have no ingoing transitions."""
+
+        for (src, inp, op, stk, tar) in self.transitions:
+            if tar in self.initial:
+                raise ValueError(f"Initial state {tar} must not have ingoing transitions: ({src, inp, op, stk, tar})");
+
+    def check_final_states_no_outgoing(self):
+        """Check that final states have no outgoing transitions."""
+
+        for (src, inp, op, stk, tar) in self.transitions:
+            if src in self.final:
+                raise ValueError(f"Final state {src} must not have outgoing transitions: ({src, inp, op, stk, tar})");
+
+    def check_transitions_to_final(self):
+        """Check that all transitions leading to final states pop the bottom
+        symbol and that bottom symbol is never pushed."""
+
+        for (src, inp, op, stk, tar) in self.transitions:
+                if tar in self.final and not (op == StackOp.POP and stk == BOTTOM):
+                    raise ValueError(f"Transition to final state {tar} must pop bottom symbol: ({src, inp, op, stk, tar})");
+                if op == StackOp.PUSH and stk == BOTTOM:
+                    raise ValueError(f"No transition must push bottom symbol: ({src, inp, op, stk, tar})");
+        
+    def get_length_one_words(self) -> (Set[str], Set[PDATransition]):
+        """Returns list of all words of length 1. Because of the restrictions
+        of the PDA definition, only transitions from an initial to a final
+        state need to be considered.
+        """
+
+        relevant_transitions: Set[PDATransition] = set()
+        length_one_words: Set[str] = set()
+
+        for (src, inp, op, stk, tar) in self.transitions:
+            if src in self.initial and tar in self.final and op == StackOp.POP and stk == BOTTOM:
+                length_one_words.add(inp)
+                relevant_transitions.add((src, inp, op, stk, tar))
+
+        return length_one_words, relevant_transitions
+        
+    def remove_transitions(self, transitions: set[PDATransition]):
+        """Remove the transitions from the PDA. Raises a KeyError if a
+        transition does not exist.
+        """
+
+        for transition in transitions:
+            self.transitions.remove(transition)
+
+    def convert_to_MPDA(self):
+        """Convert PDA to MPDA."""
+
+        new_states: Set[str]
+        new_input_symbols: Set[str]
+        new_stack_symbols: Set[str]
+        new_transitions: Set[MPDATransition] = set()
+        new_output_function: Dict[str, str]
+        new_initial: Set[str] = set()
+        new_final: Set[str]
+
+        stack_symbols_temp: Set[str] = self.stack_symbols.copy()
+        stack_symbols_temp.remove(BOTTOM)
+        stack_symbols_temp.add(EPS)
+
+
+        new_output_function = {f"{q}_{i}_{s}_{b}": i
+                for q in self.states
+                for i in self.input_symbols 
+                for s in stack_symbols_temp 
+                for b in [0,1]}
+
+        new_states = set(new_output_function.keys())
+
+        new_stack_symbols = {f"{s}_{b}"
+                for s in self.stack_symbols
+                for b in [0,1]}
+
+        new_final = {f"{q}_{i}_{s}_{b}"
+                for q in self.final
+                for i in self.input_symbols 
+                for s in [EPS] 
+                for b in [1]}
+
+        for (src, inp, op, stk, tar) in self.transitions:
+            if src in self.initial and op == StackOp.PUSH:
+                new_initial.add(f"{tar}_{inp}_{stk}_1")
+            elif src in self.initial and op == StackOp.IGNORE:
+                new_initial.add(f"{tar}_{inp}_{EPS}_1")
+            # the case POP does not occur because that would mean that a word
+            # of length 1 is accepted, which is not representable in the MPDA
+
+
+        print(new_states)
+        print(new_initial)
+        print(new_final)
+
+        # TODO: implementation of transitions
+        
+
+
+@dataclass
+@typechecked
+class MPDA:
+    """Moore Pushdown automaton. Input symbols are produced at the states as
+    defined by the output function (and not at the transitions).
+    In a single transition, only single stack symbols can be pushed or popped
+    (or the stack can be ignored).
+    No epsilon-transitions are allowed.
+    An accepting configuration is reached when a final state is reached while
+    emptying the stack.
+    Note that the empty word or words of length 1 can therefore not be accepted.
+    Transitions have the form (source state, stack operation, stack symbol,
+    target state). If the stack operation is IGNORE, the stack
+    symbol should be None.
+    Starts nondeterministically with any stack symbols at the bottom of the stack.
+    """
+    
+    states: Set[str]
+    input_symbols: Set[str]
+    stack_symbols: Set[str]
+    transitions: Set[MPDATransition]
+    output_function: Dict[str, str]
+    initial: Set[str]
+    final: Set[str]
+
+    # TODO: check properties of MPDA in __post_init__
+
+
+if __name__ == '__main__':
+
+    input_file = "input-pda.json"
+    
+    with open(input_file) as file:
+        pda_dict = json.load(file)
+    input_pda = PDA.from_dict(pda_dict)
+
+    length_one_words, transitions = input_pda.get_length_one_words()
+    print(length_one_words)
+    input_pda.remove_transitions(transitions)
+
+    input_pda.convert_to_MPDA()
