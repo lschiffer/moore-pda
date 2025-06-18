@@ -245,6 +245,64 @@ class MPDA:
 
     # TODO: check properties of MPDA in __post_init__
 
+    def trim(self):
+        """Removes unused states and transitions. Reachability from an initial
+        state and to a final state is both required for a state/transition to be
+        useful.
+        """
+
+        forward_adjacency: Dict[str, Set[str]] = dict()
+        backward_adjacency: Dict[str, Set[str]] = dict()
+
+        # build dicts for forward/backward adjacency
+        for (src, op, stk, tar) in self.transitions:
+            forward_adjacency.setdefault(src, set()).add(tar)
+            backward_adjacency.setdefault(tar, set()).add(src)
+
+        # states reachable from initial/final states
+        forward_reachable: Set[str] = get_reachable_states(self.initial, forward_adjacency)
+        backward_reachable: Set[str]  = get_reachable_states(self.final, backward_adjacency)
+
+        print(f"FORWARD REACHABLE: {forward_reachable}")
+        print(f"BACKWARD REACHABLE: {backward_reachable}")
+
+        useful_states: Set[str] = set.intersection(forward_reachable, backward_reachable)
+
+        print(f"USEFUL STATES: {useful_states}")
+
+        # useful transitions
+        useful_transitions: Set[MPDATransition] = set()
+        for (src, op, stk, tar) in self.transitions:
+            if src in useful_states and tar in useful_states:
+                useful_transitions.add((src, op, stk, tar))
+
+        print(f"USEFUL TRANSITIONS: {useful_transitions}")
+
+        self.states = useful_states
+        self.transitions = useful_transitions
+
+
+def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[str]]):
+    """Given a set of starting nodes and a dict with the successors of
+    each node in a graph, the set of nodes reachable from the starting
+    nodes is computed. (Traversal in no specific order.)"""
+
+    visited: Set[str] = set()
+    reachable: Set[str] = starting_set.copy()
+    visit_next: Set[str] = starting_set.copy()
+
+    while len(visit_next) != 0:
+        current_node: str = visit_next.pop()
+        children: set[str] = adjacency_dict.get(current_node, set())
+        for child in children:
+            reachable.add(child)
+            if child not in visited:
+                visit_next.add(child)
+        visited.add(current_node)
+
+    return reachable
+
+
 
 if __name__ == '__main__':
 
@@ -258,4 +316,7 @@ if __name__ == '__main__':
     print(length_one_words)
     input_pda.remove_transitions(transitions)
 
-    input_pda.convert_to_MPDA()
+    output_mpda = input_pda.convert_to_MPDA()
+    output_mpda.trim()
+
+    
