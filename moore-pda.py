@@ -4,6 +4,7 @@ from typing import Set, Tuple, Optional, Dict
 from enum import Enum
 from typeguard import typechecked
 import json
+from graphviz import Digraph
 
 
 class StackOp(Enum):
@@ -303,6 +304,47 @@ def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[s
     return reachable
 
 
+def show_automaton(automaton: PDA | MPDA, filename: str):
+    """Renders the given automaton (PDA or MPDA) using graphviz and stores it as
+    a png file under the given file name.
+    """
+
+    graph: Digraph = Digraph()
+
+    if isinstance(automaton, PDA):
+        for state in automaton.states:
+            if state in automaton.initial:
+                graph.node(state, state)
+                graph.node(f"__start__{state}", shape='point')
+                graph.edge(f"__start__{state}", state)
+            elif state in automaton.final:
+                graph.node(state, state, shape='doublecircle')
+            else:
+                graph.node(state, state)
+        for (src, inp, op, stk, tar) in automaton.transitions:
+            pretty_stk: str = '' if stk is None else stk.replace(BOTTOM, '⊥')
+            graph.edge(src, tar, f"{inp} {op.name} {pretty_stk}")
+    elif isinstance(automaton, MPDA):
+        for state in automaton.states:
+            output_symbol: str = automaton.output_function[state]
+            pretty_state: str = state.replace(BOTTOM, '⊥').replace(EPS, 'ε')
+            state_label: str = f"{pretty_state} | {output_symbol}"
+            if state in automaton.initial:
+                graph.node(state, state_label)
+                graph.node(f"__start__{state}", shape='point')
+                graph.edge(f"__start__{state}", state)
+            elif state in automaton.final:
+                graph.node(state, state_label, shape='doublecircle')
+            else:
+                graph.node(state, state_label)
+        for (src, op, stk, tar) in automaton.transitions:
+            pretty_stk: str = '' if stk is None else stk.replace(BOTTOM, '⊥')
+            graph.edge(src, tar, f"{op.name} {pretty_stk}")
+
+    graph.render(filename, view=True, format='png')
+
+
+
 
 if __name__ == '__main__':
 
@@ -319,4 +361,6 @@ if __name__ == '__main__':
     output_mpda = input_pda.convert_to_MPDA()
     output_mpda.trim()
 
+    show_automaton(input_pda, 'show_input_pda')
+    show_automaton(output_mpda, 'show_output_mpda')
     
