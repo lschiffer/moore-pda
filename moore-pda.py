@@ -49,7 +49,7 @@ class PDA():
 
 
     def check_basics(self):
-        """Basic check that the PDA definition is not violated: transition,
+        """Basic check that the PDA definition is not violated: transitions,
         initial, and final may only use valid states, input_symbols,
         and stack_symbols, respectively.
         """
@@ -63,7 +63,7 @@ class PDA():
         for (src, inp, op, stk, tar) in self.transitions:
             if (not src in self.states) or (not tar in self.states):
                 raise ValueError(f"Invalid source or target state in ({src, inp, op, stk, tar})")
-            if not stk in self.stack_symbols and not stk is None:
+            if not stk in self.stack_symbols and not (stk is None and op == StackOp.IGNORE):
                 raise ValueError(f"Invalid stack symbol in ({src, inp, op, stk, tar})")
             if (not isinstance(op, StackOp)) or (op == StackOp.IGNORE and not (stk is None)):
                 raise ValueError(f"Invalid stack operation in ({src, inp, op, stk, tar})")
@@ -250,12 +250,43 @@ class MPDA:
     initial: Set[str]
     final: Set[str]
 
-    # TODO: check properties of MPDA in __post_init__
+
+    def __post_init__(self):
+
+        self.check_basics()
+
+
+    def check_basics(self):
+        """Basic check that the MPDA definition is not violated: transitions,
+        output_function, initial, and final may only use valid states,
+        input_symbols, and stack_symbols, respectively.
+        """
+
+        if not self.initial <= self.states:
+            raise ValueError("Initial states must be contained in states");
+        if not self.final <= self.states:
+            raise ValueError("Final states must be contained in states");
+        for (src, op, stk, tar) in self.transitions:
+            if (not src in self.states) or (not tar in self.states):
+                raise ValueError(f"Invalid source or target state in ({src, op, stk, tar})")
+            if not stk in self.stack_symbols and not (stk is None and op == StackOp.IGNORE):
+                raise ValueError(f"Invalid stack symbol in ({src, op, stk, tar})")
+            if (not isinstance(op, StackOp)) or (op == StackOp.IGNORE and not (stk is None)):
+                raise ValueError(f"Invalid stack operation in ({src, op, stk, tar})")
+        if not self.output_function.keys() == self.states:
+                raise ValueError(f"Output function does not match with state set")
+        if not set(self.output_function.values()) <= self.input_symbols:
+                raise ValueError(f"Output function uses invalid input symbols")
+        # automaton may become empty as a result of the transformation
+        # therefore sets are not checked for emptiness
+
+
 
     def trim(self):
         """Removes unused states and transitions. Reachability from an initial
         state and to a final state is both required for a state/transition to be
-        useful.
+        useful. Also updates the output function by restricting it to remaining
+        states.
         """
 
         forward_adjacency: Dict[str, Set[str]] = dict()
@@ -287,6 +318,7 @@ class MPDA:
 
         self.states = useful_states
         self.transitions = useful_transitions
+        self.output_function = self.output_function.fromkeys(useful_states)
 
 
 def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[str]]):
