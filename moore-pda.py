@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, fields
-from typing import Set, Tuple, Optional, Dict
+from typing import Set, Tuple, Optional, Dict, List
 from enum import Enum
 from typeguard import typechecked
 import json
@@ -157,23 +157,29 @@ class PDA():
         new_final: Set[str]
 
         stack_symbols_temp: Set[str] = self.stack_symbols.copy()
-        stack_symbols_temp.remove(BOTTOM)
         stack_symbols_temp.add(EPS)
 
+        basic_state_name_list: List[Tuple[Tuple[str, str, str, int], str]] = [((q, i, s, b), (f"{q}_{i}_{s}_{b}"))
+                        for q in self.states
+                        for i in self.input_symbols 
+                        for s in stack_symbols_temp 
+                        for b in [0,1]]
 
-        new_output_function = {f"{q}_{i}_{s}_{b}": i
-                for q in self.states
-                for i in self.input_symbols 
-                for s in stack_symbols_temp 
-                for b in [0,1]}
+        # each state gets an index to prevent name collisions
+        state_name_dict: Dict[Tuple[str, str, str, int], str] = dict()
+        for (idx, (state_tuple, basic_state_name)) in enumerate(basic_state_name_list):
+            state_name_dict[state_tuple] = f"{basic_state_name}-{idx}"
 
-        new_states = set(new_output_function.keys())
+        new_output_function = {state_name_dict[(q, i, s, b)]: i
+            for (q, i, s, b) in state_name_dict.keys()}
+
+        new_states = set(state_name_dict.values())
 
         new_stack_symbols = {f"{s}_{b}"
                 for s in self.stack_symbols
                 for b in [0,1]}
 
-        new_final = {f"{q}_{i}_{s}_{b}"
+        new_final = {state_name_dict[(q, i, s, b)]
                 for q in self.final
                 for i in self.input_symbols 
                 for s in [EPS] 
@@ -181,9 +187,9 @@ class PDA():
 
         for (src, inp, op, stk, tar) in self.transitions:
             if src in self.initial and op == StackOp.PUSH:
-                new_initial.add(f"{tar}_{inp}_{stk}_1")
+                new_initial.add(state_name_dict[(tar, inp, stk, 1)])
             elif src in self.initial and op == StackOp.IGNORE:
-                new_initial.add(f"{tar}_{inp}_{EPS}_1")
+                new_initial.add(state_name_dict[(tar, inp, EPS, 1)])
             # the case POP does not occur because that would mean that a word
             # of length 1 is accepted, which is not representable in the MPDA
 
@@ -199,20 +205,20 @@ class PDA():
                 for ssym in stack_symbols_temp:
                     if op == StackOp.IGNORE:
                         # ignore: stack symbol in state unchanged
-                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.IGNORE, None, f"{tar}_{inp}_{ssym}_{0}"))
-                        new_transitions.add((f"{src}_{isym}_{ssym}_{1}", StackOp.IGNORE, None, f"{tar}_{inp}_{ssym}_{1}"))
+                        new_transitions.add((state_name_dict[(src, isym, ssym, 0)], StackOp.IGNORE, None, state_name_dict[(tar, inp, ssym, 0)]))
+                        new_transitions.add((state_name_dict[(src, isym, ssym, 1)], StackOp.IGNORE, None, state_name_dict[(tar, inp, ssym, 1)]))
                     elif op == StackOp.PUSH:
                         # push: stack symbol in state not at the top of the stack anymore (0 in target state)
-                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.PUSH, f"{stk}_0", f"{tar}_{inp}_{ssym}_{0}"))
-                        new_transitions.add((f"{src}_{isym}_{ssym}_{1}", StackOp.PUSH, f"{stk}_1", f"{tar}_{inp}_{ssym}_{0}"))
+                        new_transitions.add((state_name_dict[(src, isym, ssym, 0)], StackOp.PUSH, f"{stk}_0", state_name_dict[(tar, inp, ssym, 0)]))
+                        new_transitions.add((state_name_dict[(src, isym, ssym, 1)], StackOp.PUSH, f"{stk}_1", state_name_dict[(tar, inp, ssym, 0)]))
                     elif op == StackOp.POP:
                         # pop 1: pop symbol from real stack and retrieve top of stack bit
-                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.POP, f"{stk}_0", f"{tar}_{inp}_{ssym}_{0}"))
-                        new_transitions.add((f"{src}_{isym}_{ssym}_{0}", StackOp.POP, f"{stk}_1", f"{tar}_{inp}_{ssym}_{1}"))
+                        new_transitions.add((state_name_dict[(src, isym, ssym, 0)], StackOp.POP, f"{stk}_0", state_name_dict[(tar, inp, ssym, 0)]))
+                        new_transitions.add((state_name_dict[(src, isym, ssym, 0)], StackOp.POP, f"{stk}_1", state_name_dict[(tar, inp, ssym, 1)]))
                         # pop 2: stack symbol in state is at the top of the stack, so it is removed instead
-                        new_transitions.add((f"{src}_{isym}_{stk}_{1}", StackOp.IGNORE, None, f"{tar}_{inp}_{EPS}_{1}"))
+                        new_transitions.add((state_name_dict[(src, isym, stk, 1)], StackOp.IGNORE, None, state_name_dict[(tar, inp, EPS, 1)]))
                         # pop 3: bottom of the stack is reached and no stack symbol stored in state
-                        new_transitions.add((f"{src}_{isym}_{EPS}_{1}", StackOp.POP, f"{stk}_1", f"{tar}_{inp}_{EPS}_{1}"))
+                        new_transitions.add((state_name_dict[(src, isym, EPS, 1)], StackOp.POP, f"{stk}_1", state_name_dict[(tar, inp, EPS, 1)]))
         
         print(new_transitions)
 
@@ -348,7 +354,7 @@ def show_automaton(automaton: PDA | MPDA, filename: str):
 
 if __name__ == '__main__':
 
-    input_file = "input-pda.json"
+    input_file = "input_pda_2.json"
     
     with open(input_file) as file:
         pda_dict = json.load(file)
@@ -359,6 +365,7 @@ if __name__ == '__main__':
     input_pda.remove_transitions(transitions)
 
     output_mpda = input_pda.convert_to_MPDA()
+    #show_automaton(output_mpda, 'show_output_mpda_before_trim')
     output_mpda.trim()
 
     show_automaton(input_pda, 'show_input_pda')
