@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, fields
-from typing import Set, Tuple, Optional, Dict, List
+from typing import Set, Tuple, Optional, Dict, List, Any
 from enum import Enum
 from typeguard import typechecked
 import json
@@ -121,7 +121,7 @@ class PDA():
                 if op == StackOp.PUSH and stk == BOTTOM:
                     raise ValueError(f"No transition must push bottom symbol: ({src, inp, op, stk, tar})");
         
-    def get_length_one_words(self) -> (Set[str], Set[PDATransition]):
+    def get_length_one_words(self) -> Tuple[Set[str], Set[PDATransition]]:
         """Returns list of all words of length 1. Because of the restrictions
         of the PDA definition, only transitions from an initial to a final
         state need to be considered.
@@ -281,6 +281,28 @@ class MPDA:
         # therefore sets are not checked for emptiness
 
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Returns a dict based on the MPDA instance."""
+
+        output_dict: Dict[str, Any] = dict()
+
+        output_dict["type"] = "MPDA"
+
+        for field in fields(MPDA):
+            if field.name == "transitions":
+                prepared_transitions = []
+                for (src, op, stk, tar) in getattr(self, field.name):
+                    prepared_transitions.append((src, op.value, stk, tar))
+                output_dict[field.name] = prepared_transitions
+
+            elif field.name == "output_function":
+                output_dict[field.name] = getattr(self, field.name)
+                
+            else:
+                output_dict[field.name] = list(getattr(self, field.name))
+
+        return output_dict
+
 
     def trim(self):
         """Removes unused states and transitions. Reachability from an initial
@@ -301,12 +323,12 @@ class MPDA:
         forward_reachable: Set[str] = get_reachable_states(self.initial, forward_adjacency)
         backward_reachable: Set[str]  = get_reachable_states(self.final, backward_adjacency)
 
-        print(f"FORWARD REACHABLE: {forward_reachable}")
-        print(f"BACKWARD REACHABLE: {backward_reachable}")
+        #print(f"FORWARD REACHABLE: {forward_reachable}")
+        #print(f"BACKWARD REACHABLE: {backward_reachable}")
 
         useful_states: Set[str] = set.intersection(forward_reachable, backward_reachable)
 
-        print(f"USEFUL STATES: {useful_states}")
+        #print(f"USEFUL STATES: {useful_states}")
 
         # useful transitions
         useful_transitions: Set[MPDATransition] = set()
@@ -314,14 +336,16 @@ class MPDA:
             if src in useful_states and tar in useful_states:
                 useful_transitions.add((src, op, stk, tar))
 
-        print(f"USEFUL TRANSITIONS: {useful_transitions}")
+        #print(f"USEFUL TRANSITIONS: {useful_transitions}")
+
+        useful_output_function: Dict[str, str] = {state: self.output_function[state] for state in useful_states}
 
         self.states = useful_states
         self.transitions = useful_transitions
-        self.output_function = self.output_function.fromkeys(useful_states)
+        self.output_function = useful_output_function
 
 
-def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[str]]):
+def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[str]]) -> Set[str]:
     """Given a set of starting nodes and a dict with the successors of
     each node in a graph, the set of nodes reachable from the starting
     nodes is computed. (Traversal in no specific order.)"""
@@ -387,8 +411,9 @@ def show_automaton(automaton: PDA | MPDA, filename: str):
 if __name__ == '__main__':
 
     input_file = "input_pda_2.json"
+    output_file = "output_mpda.json"
     
-    with open(input_file) as file:
+    with open(input_file, "r") as file:
         pda_dict = json.load(file)
     input_pda = PDA.from_dict(pda_dict)
 
@@ -403,3 +428,8 @@ if __name__ == '__main__':
     show_automaton(input_pda, 'show_input_pda')
     show_automaton(output_mpda, 'show_output_mpda')
     
+    mpda_dict = output_mpda.to_dict()
+    print(mpda_dict)
+
+    with open(output_file, "w") as file:
+        json.dump(mpda_dict, file, indent=4)
