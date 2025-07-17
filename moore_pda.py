@@ -62,11 +62,11 @@ class PDA():
             raise ValueError(f"{BOTTOM} must be in state set")
         for (src, inp, op, stk, tar) in self.transitions:
             if (not src in self.states) or (not tar in self.states):
-                raise ValueError(f"Invalid source or target state in ({src, inp, op, stk, tar})")
+                raise ValueError(f"Invalid source or target state in {src, inp, op, stk, tar}")
             if not stk in self.stack_symbols and not (stk is None and op == StackOp.IGNORE):
-                raise ValueError(f"Invalid stack symbol in ({src, inp, op, stk, tar})")
-            if (not isinstance(op, StackOp)) or (op == StackOp.IGNORE and not (stk is None)):
-                raise ValueError(f"Invalid stack operation in ({src, inp, op, stk, tar})")
+                raise ValueError(f"Invalid stack symbol in {src, inp, op, stk, tar}")
+            if op == StackOp.IGNORE and not (stk is None):
+                raise ValueError(f"Invalid stack operation in {src, inp, op, stk, tar}")
         if not self.states or not self.initial or not self.final or not self.input_symbols:
                 raise ValueError(f"Sets of states, initial states, final states, input symbols must not be empty")
 
@@ -82,11 +82,11 @@ class PDA():
 
         for field in fields(PDA):
             if field.name == "transitions":
-                prepared_transitions = []
+                prepared_transitions: Set[PDATransition] = set()
                 for trans in input_dict["transitions"]:
                     if len(trans) != 5:
                         raise ValueError(f"PDATransition {trans} needs to have 5 elements")
-                    prepared_transitions.append((trans[0], trans[1], StackOp(trans[2]), trans[3], trans[4]))
+                    prepared_transitions.add((trans[0], trans[1], StackOp(trans[2]), trans[3], trans[4]))
 
                 prepared_dict["transitions"] = prepared_transitions
                 
@@ -102,14 +102,14 @@ class PDA():
 
         for (src, inp, op, stk, tar) in self.transitions:
             if tar in self.initial:
-                raise ValueError(f"Initial state {tar} must not have ingoing transitions: ({src, inp, op, stk, tar})");
+                raise ValueError(f"Initial state {tar} must not have ingoing transitions: {src, inp, op, stk, tar}");
 
     def check_final_states_no_outgoing(self):
         """Check that final states have no outgoing transitions."""
 
         for (src, inp, op, stk, tar) in self.transitions:
             if src in self.final:
-                raise ValueError(f"Final state {src} must not have outgoing transitions: ({src, inp, op, stk, tar})");
+                raise ValueError(f"Final state {src} must not have outgoing transitions: {src, inp, op, stk, tar}");
 
     def check_transitions_to_final(self):
         """Check that all transitions leading to final states pop the bottom
@@ -117,9 +117,9 @@ class PDA():
 
         for (src, inp, op, stk, tar) in self.transitions:
                 if tar in self.final and not (op == StackOp.POP and stk == BOTTOM):
-                    raise ValueError(f"Transition to final state {tar} must pop bottom symbol: ({src, inp, op, stk, tar})");
+                    raise ValueError(f"Transition to final state {tar} must pop bottom symbol: {src, inp, op, stk, tar}");
                 if op == StackOp.PUSH and stk == BOTTOM:
-                    raise ValueError(f"No transition must push bottom symbol: ({src, inp, op, stk, tar})");
+                    raise ValueError(f"No transition must push bottom symbol: {src, inp, op, stk, tar}");
         
     def get_length_one_words(self) -> Tuple[Set[str], Set[PDATransition]]:
         """Returns list of all words of length 1. Because of the restrictions
@@ -410,7 +410,7 @@ def show_automaton(automaton: PDA | MPDA, filename: str):
 
 if __name__ == '__main__':
 
-    input_file = "input_pda_2.json"
+    input_file = "input_pda_3.json"
     output_file = "output_mpda.json"
     
     with open(input_file, "r") as file:
