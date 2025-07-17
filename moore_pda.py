@@ -15,11 +15,13 @@ class StackOp(Enum):
 BOTTOM = "__bottom_symbol__"
 EPS = "__epsilon__"
 
+special_symbols: Set[str] = { BOTTOM, EPS, StackOp.POP.value, StackOp.PUSH.value, StackOp.IGNORE.value }
+
 PDATransition = Tuple[str, str, StackOp, Optional[str], str]
 MPDATransition = Tuple[str, StackOp, Optional[str], str]
 
-@dataclass
 @typechecked
+@dataclass
 class PDA():
     """Pushdown automaton.
     In a single transition, only single stack symbols can be pushed or popped
@@ -51,7 +53,8 @@ class PDA():
     def check_basics(self):
         """Basic check that the PDA definition is not violated: transitions,
         initial, and final may only use valid states, input_symbols,
-        and stack_symbols, respectively.
+        and stack_symbols, respectively. Reserved special symbols are not allowed
+        as states or stack symbols or input symbols.
         """
 
         if not self.initial <= self.states:
@@ -59,7 +62,7 @@ class PDA():
         if not self.final <= self.states:
             raise ValueError("Final states must be contained in states");
         if not BOTTOM in self.stack_symbols:
-            raise ValueError(f"{BOTTOM} must be in state set")
+            raise ValueError(f"{BOTTOM} must be in stack symbols")
         for (src, inp, op, stk, tar) in self.transitions:
             if (not src in self.states) or (not tar in self.states):
                 raise ValueError(f"Invalid source or target state in {src, inp, op, stk, tar}")
@@ -69,6 +72,9 @@ class PDA():
                 raise ValueError(f"Invalid stack operation in {src, inp, op, stk, tar}")
         if not self.states or not self.initial or not self.final or not self.input_symbols:
                 raise ValueError(f"Sets of states, initial states, final states, input symbols must not be empty")
+        for sym in special_symbols:
+            if sym in self.states or sym in self.input_symbols or (sym in self.stack_symbols and sym != BOTTOM):
+                raise ValueError(f"Special symbol {sym} not allowed as state or stack symbol or input symbol")
 
 
     @classmethod
@@ -225,8 +231,8 @@ class PDA():
         return(MPDA(new_states, new_input_symbols, new_stack_symbols, new_transitions, new_output_function, new_initial, new_final))
 
 
-@dataclass
 @typechecked
+@dataclass
 class MPDA:
     """Moore Pushdown automaton. Input symbols are produced at the states as
     defined by the output function (and not at the transitions).
@@ -345,6 +351,7 @@ class MPDA:
         self.output_function = useful_output_function
 
 
+@typechecked
 def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[str]]) -> Set[str]:
     """Given a set of starting nodes and a dict with the successors of
     each node in a graph, the set of nodes reachable from the starting
@@ -366,6 +373,7 @@ def get_reachable_states(starting_set: Set[str], adjacency_dict: Dict[str, Set[s
     return reachable
 
 
+@typechecked
 def show_automaton(automaton: PDA | MPDA, filename: str):
     """Renders the given automaton (PDA or MPDA) using graphviz and stores it as
     a png file under the given file name.

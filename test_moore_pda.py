@@ -39,7 +39,7 @@ class TestInputPDA(unittest.TestCase):
 
     def test_bottom_symbol_missing(self):
         self.check_file_name_value_error(self.pda_dir / "pda_bottom_symbol_missing.json",
-            "__bottom_symbol__ must be in state set")
+            "__bottom_symbol__ must be in stack symbols")
 
     def test_invalid_transition(self):
         self.check_file_name_value_error(self.pda_dir / "pda_invalid_transition1.json",
@@ -68,6 +68,25 @@ class TestInputPDA(unittest.TestCase):
             "Sets of states, initial states, final states, input symbols must not be empty")
         self.check_file_name_value_error(self.pda_dir / "pda_empty_set4.json",
             "Sets of states, initial states, final states, input symbols must not be empty")
+
+    def test_wrong_automaton_type(self):
+        self.check_file_name_value_error(self.pda_dir / "pda_wrong_automaton_type.json",
+            "Input automaton type not matching PDA")
+
+    def test_wrong_transition_length(self):
+        self.check_file_name_value_error(self.pda_dir / "pda_wrong_transition_length1.json",
+            "PDATransition ['p', '__ignore__', None, 'q'] needs to have 5 elements")
+        self.check_file_name_value_error(self.pda_dir / "pda_wrong_transition_length2.json",
+            "PDATransition ['p', 'a', '__ignore__', None, 'q', 'a'] needs to have 5 elements")
+
+    def test_special_symbols(self):
+        self.check_file_name_value_error(self.pda_dir / "pda_special_symbols1.json",
+            "Special symbol __epsilon__ not allowed as state or stack symbol or input symbol")
+        self.check_file_name_value_error(self.pda_dir / "pda_special_symbols2.json",
+            "Special symbol __bottom_symbol__ not allowed as state or stack symbol or input symbol")
+        self.check_file_name_value_error(self.pda_dir / "pda_special_symbols3.json",
+            "Special symbol __push__ not allowed as state or stack symbol or input symbol")
+
 
     # other checks
     def test_initial_states_ingoing(self):
