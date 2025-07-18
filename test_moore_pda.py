@@ -130,10 +130,93 @@ class TestInputPDA(unittest.TestCase):
 
 
 class TestPDAGetLengthOne(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.top_dir = Path(__file__).parent
+        self.pda_dir = self.top_dir / "test_pdas"
+
+    def test_has_one_length_one(self):
+        with open(self.pda_dir / "pda_valid.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        words: Set[str]
+        transitions: Set[PDATransition]
+        words, transitions = input_pda.get_length_one_words()
+        self.assertEqual(words, { "c" })
+        self.assertEqual(transitions, { ("p", "c", StackOp.POP, "__bottom_symbol__", "f") })
+
+    def test_has_two_length_one(self):
+        with open(self.pda_dir / "pda_valid_two_length_one.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        words: Set[str]
+        transitions: Set[PDATransition]
+        words, transitions = input_pda.get_length_one_words()
+        self.assertEqual(words, { "c", "a" })
+        self.assertEqual(transitions, { ("p", "c", StackOp.POP, "__bottom_symbol__", "f"), ("x", "a", StackOp.POP, "__bottom_symbol__", "g") })
+
+    def test_has_no_length_one(self):
+        with open(self.pda_dir / "pda_valid_no_length_one.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        words: Set[str]
+        transitions: Set[PDATransition]
+        words, transitions = input_pda.get_length_one_words()
+        self.assertEqual(words, set())
+        self.assertEqual(transitions, set())
+
+
 
 class TestPDARemoveTransitions(unittest.TestCase):
-    pass
+
+    def setUp(self):
+        self.top_dir = Path(__file__).parent
+        self.pda_dir = self.top_dir / "test_pdas"
+
+        with open(self.pda_dir / "pda_valid.json", "r") as file:
+            pda_dict = json.load(file)
+        self.input_pda: PDA = PDA.from_dict(pda_dict)
+
+    def test_remove_no_transitions(self):
+        self.input_pda.remove_transitions(set())
+
+        self.assertEqual(self.input_pda.states, {"p", "q", "f"})
+        self.assertEqual(self.input_pda.input_symbols, {"a", "b", "c"})
+        self.assertEqual(self.input_pda.stack_symbols, {"__bottom_symbol__", "z"})
+        self.assertEqual(self.input_pda.initial, {"p"})
+        self.assertEqual(self.input_pda.final, {"f"})
+
+        expected_transitions: List[PDATransition] = {
+            ("p", "a", StackOp.IGNORE, None, "q"),
+            ("p", "c", StackOp.POP, "__bottom_symbol__", "f"),
+            ("q", "a", StackOp.PUSH, "z", "q"),
+            ("q", "b", StackOp.POP, "z", "q"),
+            ("q", "b", StackOp.POP, "__bottom_symbol__", "f")}
+
+        self.assertEqual(self.input_pda.transitions, expected_transitions)
+
+    def test_remove_two_transitions(self):
+        self.input_pda.remove_transitions({("q", "b", StackOp.POP, "z", "q"),
+            ("q", "b", StackOp.POP, "__bottom_symbol__", "f")})
+
+        self.assertEqual(self.input_pda.states, {"p", "q", "f"})
+        self.assertEqual(self.input_pda.input_symbols, {"a", "b", "c"})
+        self.assertEqual(self.input_pda.stack_symbols, {"__bottom_symbol__", "z"})
+        self.assertEqual(self.input_pda.initial, {"p"})
+        self.assertEqual(self.input_pda.final, {"f"})
+
+        expected_transitions: List[PDATransition] = {
+            ("p", "a", StackOp.IGNORE, None, "q"),
+            ("p", "c", StackOp.POP, "__bottom_symbol__", "f"),
+            ("q", "a", StackOp.PUSH, "z", "q")}
+
+        self.assertEqual(self.input_pda.transitions, expected_transitions)
+
+    def test_remove_nonexistent_transition(self):
+        with self.assertRaises(KeyError) as context:
+            self.input_pda.remove_transitions({("p", "a", StackOp.IGNORE, None, "x")})
+
+
 
 class TestPDAConvertMPDA(unittest.TestCase):
     pass
