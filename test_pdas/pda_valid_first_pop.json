@@ -1,0 +1,13 @@
+{
+    "type": "PDA",
+    "states": ["p", "q", "f"],
+    "input_symbols": ["a", "b"],
+    "stack_symbols": ["__bottom_symbol__", "z"],
+    "transitions": [["p", "a", "__pop__", "z", "q"],
+        ["q", "a", "__pop__", "z", "q"],
+        ["q", "b", "__pop__", "__bottom_symbol__", "f"]
+    ],
+    "initial": ["p"],
+    "final": ["f"]
+
+}

@@ -219,7 +219,130 @@ class TestPDARemoveTransitions(unittest.TestCase):
 
 
 class TestPDAConvertMPDA(unittest.TestCase):
-    pass
+    """These tests check that the outputs of convert_to_MPDA are consistent with
+    the specification. Better would be to check that the two automata
+    have the same behavior, which would require parsing inputs with them."""
+
+    def setUp(self):
+        self.top_dir = Path(__file__).parent
+        self.pda_dir = self.top_dir / "test_pdas"
+
+    def test_first_transition_ignore(self):
+
+        with open(self.pda_dir / "pda_valid_test_conversion.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        output_mpda: MPDA = input_pda.convert_to_MPDA()
+
+        self.assertEqual(output_mpda.input_symbols, {"b", "a"})
+        self.assertEqual(output_mpda.stack_symbols, {"z_1", "z_0", "__bottom_symbol___0", "__bottom_symbol___1"})
+
+        states_no_index: Set[str] = set(map(lambda s: s.split('-')[0], output_mpda.states))
+        self.assertEqual(len(states_no_index), len(output_mpda.states))
+        expected_states: Set[str] = {f"{q}_{i}_{s}_{b}"
+            for q in {"q", "p", "f"}
+            for i in {"a", "b"}
+            for s in {"z", "__bottom_symbol__", "__epsilon__"}
+            for b in {"0", "1"}}
+
+        self.assertEqual(states_no_index, expected_states)
+
+        for state in output_mpda.states:
+            self.assertEqual(output_mpda.output_function[state], state[2])
+
+        final_no_index: Set[str] = set(map(lambda s: s.split('-')[0], output_mpda.final))
+        initial_no_index: Set[str] = set(map(lambda s: s.split('-')[0], output_mpda.initial))
+
+        self.assertEqual(len(final_no_index), len(output_mpda.final))
+        self.assertEqual(len(initial_no_index), len(output_mpda.initial))
+
+        self.assertEqual(final_no_index, {"f_b___epsilon___1", "f_a___epsilon___1"})
+
+        self.assertEqual(initial_no_index, {"q_a___epsilon___1"})
+
+        transitions_no_index: Set[MPDATransition] = set(map(lambda t: 
+            (t[0].split('-')[0], t[1], t[2], t[3].split('-')[0]), output_mpda.transitions))
+
+        self.assertEqual(len(transitions_no_index), len(output_mpda.transitions))
+
+        expected_ignore: set[MPDATransition] = {(f"p_{i}_{s}_{b}", StackOp.IGNORE, None, f"q_a_{s}_{b}")
+            for i in {"a", "b"} for s in {"z", "__epsilon__", "__bottom_symbol__"} for b in {"0", "1"}}
+        self.assertLessEqual(expected_ignore, transitions_no_index)
+
+        expected_push: set[MPDATransition] = {(f"q_{i}_{s}_{b}", StackOp.PUSH, f"z_{b}", f"q_a_{s}_0")
+            for i in {"a", "b"} for s in {"z", "__epsilon__", "__bottom_symbol__"} for b in {"0", "1"}}
+        self.assertLessEqual(expected_push, transitions_no_index)
+
+        expected_pop1: set[MPDATransition] = set()
+        expected_pop1 = expected_pop1.union({(f"q_{i}_{s}_0", StackOp.POP, f"z_{b}", f"q_b_{s}_{b}")
+            for i in {"a", "b"} for s in {"z", "__epsilon__", "__bottom_symbol__"} for b in {"0", "1"}})
+        expected_pop1 = expected_pop1.union({(f"q_{i}_z_1", StackOp.IGNORE, None, f"q_b___epsilon___1") for i in {"a", "b"}})
+        expected_pop1 = expected_pop1.union({(f"q_{i}___epsilon___1", StackOp.POP, "z_1", f"q_b___epsilon___1") for i in {"a", "b"}})
+        self.assertLessEqual(expected_pop1, transitions_no_index)
+
+        expected_pop2: set[MPDATransition] = set()
+        expected_pop2 = expected_pop2.union({(f"q_{i}_{s}_0", StackOp.POP, f"__bottom_symbol___{b}", f"f_b_{s}_{b}")
+            for i in {"a", "b"} for s in {"z", "__epsilon__", "__bottom_symbol__"} for b in {"0", "1"}})
+        expected_pop2 = expected_pop2.union({(f"q_{i}___bottom_symbol___1", StackOp.IGNORE, None, f"f_b___epsilon___1") for i in {"a", "b"}})
+        expected_pop2 = expected_pop2.union({(f"q_{i}___epsilon___1", StackOp.POP, "__bottom_symbol___1", f"f_b___epsilon___1") for i in {"a", "b"}})
+        self.assertLessEqual(expected_pop2, transitions_no_index)
+
+        all_expected_transitions: set[MPDATransition] = set.union(expected_ignore, expected_push, expected_pop1, expected_pop2)
+        set_diff = set.difference(transitions_no_index, all_expected_transitions)
+
+        self.assertEqual(len(transitions_no_index),
+            len(expected_ignore) + len(expected_push) + len(expected_pop1) + len(expected_pop2), msg=f"Transition Set Difference: {set_diff}")
+
+
+    def test_first_transition_push(self):
+
+        with open(self.pda_dir / "pda_valid_first_push.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        output_mpda: MPDA = input_pda.convert_to_MPDA()
+
+        initial_no_index: Set[str] = set(map(lambda s: s.split('-')[0], output_mpda.initial))
+        expected_initial: set[MPDATransition] = {"q_a_z_1"}
+        self.assertEqual(initial_no_index, expected_initial)
+
+
+    def test_first_transition_pop(self):
+
+        with open(self.pda_dir / "pda_valid_first_pop.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        output_mpda: MPDA = input_pda.convert_to_MPDA()
+
+        self.assertEqual(output_mpda.initial, set())
+
+
+    def test_name_clash(self):
+
+        with open(self.pda_dir / "pda_valid_name_clash.json", "r") as file:
+            pda_dict = json.load(file)
+        input_pda: PDA = PDA.from_dict(pda_dict)
+        output_mpda: MPDA = input_pda.convert_to_MPDA()
+        
+        self.assertEqual(len(output_mpda.states), 3*2*4*2)
+        self.assertEqual(len(output_mpda.initial), 2)
+        initial_list: list[str] = list(output_mpda.initial)
+        first_output: str = output_mpda.output_function[initial_list[0]]
+        second_output: str = output_mpda.output_function[initial_list[1]]
+        self.assertEqual(set([first_output, second_output]), set(["a", "a_x"]))
+        self.assertEqual(initial_list[0].split('-')[0], 'q_a_x_b_1')
+        self.assertEqual(initial_list[1].split('-')[0], 'q_a_x_b_1')
+
+        target_states: list[str] = list()
+        for (src, op, stk, tar) in output_mpda.transitions:
+            if src == initial_list[0] or src == initial_list[1]:
+                if op == StackOp.IGNORE and stk is None:
+                    target_states.append(tar)
+
+        self.assertEqual(len(target_states), 2)
+        self.assertEqual(target_states[0], target_states[1])
+        self.assertEqual(target_states[0].split('-')[0], "q_a___epsilon___1")
+
+         
 
 ##### MPDA
 
