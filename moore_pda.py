@@ -199,10 +199,6 @@ class PDA():
             # the case POP does not occur because that would mean that a word
             # of length 1 is accepted, which is not representable in the MPDA
 
-        print(new_states)
-        print(new_initial)
-        print(new_final)
-
         # transitions: shift transition input symbol to target state
         # input symbol and stack symbol stored in source state can by any symbol
         # simulate stack symbol above stack bottom symbol in state
@@ -226,8 +222,6 @@ class PDA():
                         # pop 3: bottom of the stack is reached and no stack symbol stored in state
                         new_transitions.add((state_name_dict[(src, isym, EPS, 1)], StackOp.POP, f"{stk}_1", state_name_dict[(tar, inp, EPS, 1)]))
         
-        print(new_transitions)
-
         return(MPDA(new_states, new_input_symbols, new_stack_symbols, new_transitions, new_output_function, new_initial, new_final))
 
 
@@ -329,20 +323,13 @@ class MPDA:
         forward_reachable: Set[str] = get_reachable_states(self.initial, forward_adjacency)
         backward_reachable: Set[str]  = get_reachable_states(self.final, backward_adjacency)
 
-        #print(f"FORWARD REACHABLE: {forward_reachable}")
-        #print(f"BACKWARD REACHABLE: {backward_reachable}")
-
         useful_states: Set[str] = set.intersection(forward_reachable, backward_reachable)
-
-        #print(f"USEFUL STATES: {useful_states}")
 
         # useful transitions
         useful_transitions: Set[MPDATransition] = set()
         for (src, op, stk, tar) in self.transitions:
             if src in useful_states and tar in useful_states:
                 useful_transitions.add((src, op, stk, tar))
-
-        #print(f"USEFUL TRANSITIONS: {useful_transitions}")
 
         useful_output_function: Dict[str, str] = {state: self.output_function[state] for state in useful_states}
 
@@ -424,6 +411,8 @@ if __name__ == '__main__':
     with open(input_file, "r") as file:
         pda_dict = json.load(file)
     input_pda = PDA.from_dict(pda_dict)
+
+    #show_automaton(input_pda, 'show_input_pda_before_removal')
 
     length_one_words, transitions = input_pda.get_length_one_words()
     print(length_one_words)
