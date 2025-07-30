@@ -349,11 +349,45 @@ class TestPDAConvertMPDA(unittest.TestCase):
 class TestMPDACheckBasics(unittest.TestCase):
     pass
 
-class TestMPDAToDict(unittest.TestCase):
-    pass
+class TestMPDADict(unittest.TestCase):
+
+    def setUp(self):
+        self.top_dir = Path(__file__).parent
+        self.mpda_dir = self.top_dir / "test_mpdas"
+    
+    def check_valid_mpda_identity(self, mpda: MPDA):
+
+        self.assertEqual(mpda.states, {"p", "q", "f"})
+        self.assertEqual(mpda.input_symbols, {"a", "b", "c"})
+        self.assertEqual(mpda.output_function, {"p": "a", "q": "b", "f": "c"})
+        self.assertEqual(mpda.stack_symbols, {"z"})
+        self.assertEqual(mpda.transitions, {("p", StackOp.IGNORE, None, "q"),
+            ("p", StackOp.POP, "z", "f"),
+            ("q", StackOp.PUSH, "z", "q"),
+            ("q", StackOp.POP, "z", "q")})
+        self.assertEqual(mpda.initial, {"p"})
+        self.assertEqual(mpda.final, {"f"})
+
+    def test_to_and_from_json(self):
+
+        with open(self.mpda_dir / "mpda_valid.json", "r") as file:
+            mpda_dict = json.load(file)
+        input_mpda: MPDA = MPDA.from_dict(mpda_dict)
+        self.check_valid_mpda_identity(input_mpda)
+
+        mpda_dict2: Dict[str, Any] = input_mpda.to_dict()
+        input_mpda2: MPDA = MPDA.from_dict(mpda_dict2)
+        self.check_valid_mpda_identity(input_mpda2)
+
 
 class TestMPDATrim(unittest.TestCase):
-    pass
+    
+    def test_nothing_to_trim(self):
+        pass
+
+    def test_trim(self):
+        pass
+
 
 
 ##### Other

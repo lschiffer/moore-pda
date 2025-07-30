@@ -281,6 +281,41 @@ class MPDA:
         # therefore sets are not checked for emptiness
 
 
+    @classmethod
+    def from_dict(cls, input_dict) -> MPDA:
+        """Takes a JSON dict and returns a MPDA instance based on it."""
+
+        if input_dict["type"] != "MPDA":
+                raise ValueError(f"Input automaton type not matching MPDA")
+
+        prepared_dict = {}
+
+        for field in fields(MPDA):
+            if field.name == "transitions":
+                prepared_transitions: Set[MPDATransition] = set()
+                for trans in input_dict["transitions"]:
+                    if len(trans) != 4:
+                        raise ValueError(f"PDATransition {trans} needs to have 4 elements")
+                    prepared_transitions.add((trans[0], StackOp(trans[1]), trans[2], trans[3]))
+
+                prepared_dict["transitions"] = prepared_transitions
+
+            elif field.name == "output_function":
+                #output_function_dict: Dict[str, str] = {}
+                #for state_output in input_dict["output_function"]:
+                #    if len(state_output) != 2:
+                #        raise ValueError(f"State output specification {state_output} needs to have 2 elements")
+                #    output_function_dict[state_output[0]] =  state_output[1]
+
+                prepared_dict["output_function"] = input_dict["output_function"]
+                
+            else:
+                if field.name in input_dict:
+                    prepared_dict[field.name] = set(input_dict[field.name])
+
+        return MPDA(**prepared_dict)
+
+
     def to_dict(self) -> Dict[str, Any]:
         """Returns a dict based on the MPDA instance."""
 
