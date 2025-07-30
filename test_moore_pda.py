@@ -349,7 +349,8 @@ class TestPDAConvertMPDA(unittest.TestCase):
 class TestMPDACheckBasics(unittest.TestCase):
     pass
 
-class TestMPDADict(unittest.TestCase):
+
+class TestMPDADictAndTrim(unittest.TestCase):
 
     def setUp(self):
         self.top_dir = Path(__file__).parent
@@ -362,7 +363,7 @@ class TestMPDADict(unittest.TestCase):
         self.assertEqual(mpda.output_function, {"p": "a", "q": "b", "f": "c"})
         self.assertEqual(mpda.stack_symbols, {"z"})
         self.assertEqual(mpda.transitions, {("p", StackOp.IGNORE, None, "q"),
-            ("p", StackOp.POP, "z", "f"),
+            ("q", StackOp.POP, "z", "f"),
             ("q", StackOp.PUSH, "z", "q"),
             ("q", StackOp.POP, "z", "q")})
         self.assertEqual(mpda.initial, {"p"})
@@ -380,15 +381,38 @@ class TestMPDADict(unittest.TestCase):
         self.check_valid_mpda_identity(input_mpda2)
 
 
-class TestMPDATrim(unittest.TestCase):
-    
+    # test trimming
+
     def test_nothing_to_trim(self):
-        pass
 
+        with open(self.mpda_dir / "mpda_valid.json", "r") as file:
+            mpda_dict = json.load(file)
+        input_mpda: MPDA = MPDA.from_dict(mpda_dict)
+        input_mpda.trim()
+        self.check_valid_mpda_identity(input_mpda)
+        
     def test_trim(self):
-        pass
+        with open(self.mpda_dir / "mpda_valid_trimmable.json", "r") as file:
+            mpda_dict = json.load(file)
+        input_mpda: MPDA = MPDA.from_dict(mpda_dict)
+        input_mpda.trim()
+        self.check_valid_mpda_identity(input_mpda)
 
+    def test_empty_result(self):
+        with open(self.mpda_dir / "mpda_trimmed_empty.json", "r") as file:
+            mpda_dict = json.load(file)
+        input_mpda: MPDA = MPDA.from_dict(mpda_dict)
+        input_mpda.trim()
+        
+        self.assertEqual(input_mpda.states, set())
+        self.assertEqual(input_mpda.input_symbols, {"a", "b", "c"})
+        self.assertEqual(input_mpda.output_function, dict())
+        self.assertEqual(input_mpda.stack_symbols, {"z"})
+        self.assertEqual(input_mpda.transitions, set())
+        self.assertEqual(input_mpda.initial, set())
+        self.assertEqual(input_mpda.final, set())
 
+    
 
 ##### Other
 

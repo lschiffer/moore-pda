@@ -5,7 +5,7 @@
     "input_symbols": ["a", "b", "c"],
     "stack_symbols": ["z"],
     "transitions": [["p", "__ignore__", null, "q"],
-        ["p", "__pop__", "z", "f"],
+        ["q", "__pop__", "z", "f"],
         ["q", "__push__", "z", "q"],
         ["q", "__pop__", "z", "q"]
     ],

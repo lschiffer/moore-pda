@@ -1,0 +1,20 @@
+{
+    "type": "MPDA",
+    "states": ["p", "q", "f", "v", "w", "k", "l", "m", "u"],
+    "output_function": {"p": "a", "q": "b", "f": "c", "v": "a", "w": "b", "k": "c", "l": "a", "m": "a", "u": "b"},
+    "input_symbols": ["a", "b", "c"],
+    "stack_symbols": ["z"],
+    "transitions": [["p", "__ignore__", null, "q"],
+        ["q", "__pop__", "z", "f"],
+        ["q", "__push__", "z", "q"],
+        ["q", "__pop__", "z", "q"],
+        ["p", "__ignore__", null, "v"],
+        ["w", "__push__", "z", "f"],
+        ["m", "__push__", "z", "u"],
+        ["u", "__ignore__", null, "m"],
+        ["k", "__pop__", "z", "l"],
+        ["l", "__ignore__", null, "k"]
+    ],
+    "initial": ["p", "m"],
+    "final": ["f", "l"]
+}
