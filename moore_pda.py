@@ -360,6 +360,9 @@ class MPDA:
 
         useful_states: Set[str] = set.intersection(forward_reachable, backward_reachable)
 
+        useful_initial: Set[str] = set.intersection(useful_states, self.initial)
+        useful_final: Set[str] = set.intersection(useful_states, self.final)
+
         # useful transitions
         useful_transitions: Set[MPDATransition] = set()
         for (src, op, stk, tar) in self.transitions:
@@ -371,6 +374,8 @@ class MPDA:
         self.states = useful_states
         self.transitions = useful_transitions
         self.output_function = useful_output_function
+        self.initial = useful_initial
+        self.final = useful_final
 
 
 @typechecked
