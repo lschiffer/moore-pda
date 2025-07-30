@@ -359,8 +359,84 @@ class TestMPDATrim(unittest.TestCase):
 ##### Other
 
 class TestGetReachableStates(unittest.TestCase):
-    pass
 
+    def test_empty_set(self):
+        starting_set: Set[str] = set()
+        adjacency_dict: dict[str, Set[str]] = dict()
+        reachable_states: Set[str] = get_reachable_states(starting_set, adjacency_dict)
+        self.assertEqual(reachable_states, set())
+
+    def test_fully_reachable_set(self):
+        starting_set: Set[str] = {'a'}
+        adjacency_dict: dict[str, Set[str]] = {
+            'a': {'b'},
+            'b': {'c'},
+            'c': {'d', 'e'},
+            'd': {'f'},
+            'f': {'g'},
+            'g': {'f'}
+        }
+        reachable_states: Set[str] = get_reachable_states(starting_set, adjacency_dict)
+        self.assertEqual(reachable_states, {'a', 'b', 'c', 'd', 'e', 'f', 'g'})
+
+    def test_connected_but_wrong_direction(self):
+        starting_set: Set[str] = {'a'}
+        adjacency_dict: dict[str, Set[str]] = {
+            'a': {'b'},
+            'b': {'c'},
+            'c': {'e'},
+            'd': {'c', 'f'},
+            'f': {'g'},
+            'g': {'f'}
+        }
+        reachable_states: Set[str] = get_reachable_states(starting_set, adjacency_dict)
+        self.assertEqual(reachable_states, {'a', 'b', 'c', 'e'})
+
+    def test_three_reachable_components(self):
+        starting_set: Set[str] = {'a', 'k', 'o'}
+        adjacency_dict: dict[str, Set[str]] = {
+            'a': {'b'},
+            'b': {'c'},
+            'c': {'d', 'e'},
+            'd': {'f'},
+            'f': {'g'},
+            'g': {'f'},
+            'k': {'l'},
+            'l': {'k', 'n', 'm'},
+            'n': {'k'}
+        }
+        reachable_states: Set[str] = get_reachable_states(starting_set, adjacency_dict)
+        self.assertEqual(reachable_states,
+            {'a', 'b', 'c', 'd', 'e', 'f', 'g', 'k', 'l', 'n', 'm', 'o'})
+
+    def test_fully_reachable_set(self):
+        starting_set: Set[str] = {'a'}
+        adjacency_dict: dict[str, Set[str]] = {
+            'a': {'b'},
+            'b': {'c'},
+            'c': {'d', 'e'},
+            'd': {'f'},
+            'f': {'g'},
+            'g': {'f'},
+            'h': {'i'},
+            'i': {'h', 'j'},
+            'j': {'i'}
+        }
+        reachable_states: Set[str] = get_reachable_states(starting_set, adjacency_dict)
+        self.assertEqual(reachable_states, {'a', 'b', 'c', 'd', 'e', 'f', 'g'})
+
+    def test_none_reachable(self):
+        starting_set: Set[str] = set()
+        adjacency_dict: dict[str, Set[str]] = {
+            'a': {'b'},
+            'b': {'c'},
+            'c': {'d', 'e'},
+            'd': {'f'},
+            'f': {'g'},
+            'g': {'f'}
+        }
+        reachable_states: Set[str] = get_reachable_states(starting_set, adjacency_dict)
+        self.assertEqual(reachable_states, set())
 
 
 if __name__ == '__main__':
