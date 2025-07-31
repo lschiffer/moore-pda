@@ -277,7 +277,10 @@ class MPDA:
                 raise ValueError(f"Output function does not match with state set")
         if not set(self.output_function.values()) <= self.input_symbols:
                 raise ValueError(f"Output function uses invalid input symbols")
-        # automaton may become empty as a result of the transformation
+        for sym in special_symbols:
+            if sym in self.states or sym in self.input_symbols or (sym in self.stack_symbols and sym != BOTTOM):
+                raise ValueError(f"Special symbol {sym} not allowed as state or stack symbol or input symbol")
+        # automaton may become empty as a result of the transformation after trimming
         # therefore sets are not checked for emptiness
 
 
@@ -301,12 +304,6 @@ class MPDA:
                 prepared_dict["transitions"] = prepared_transitions
 
             elif field.name == "output_function":
-                #output_function_dict: Dict[str, str] = {}
-                #for state_output in input_dict["output_function"]:
-                #    if len(state_output) != 2:
-                #        raise ValueError(f"State output specification {state_output} needs to have 2 elements")
-                #    output_function_dict[state_output[0]] =  state_output[1]
-
                 prepared_dict["output_function"] = input_dict["output_function"]
                 
             else:
